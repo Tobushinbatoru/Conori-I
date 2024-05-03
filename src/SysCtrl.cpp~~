@@ -1,0 +1,434 @@
+/**
+ * @file SysCtrl.cpp
+ * @brief システムのメイン
+ * @author Kenta Hiyoshi
+ * @date 2023/12/14
+ */
+
+#include "SysCtrl.h"
+
+IcsHardSerialClass krs;
+/**
+ * @brief Construct a new Sys Ctrl:: Sys Ctrl object
+ * 
+ */
+SysCtrl::SysCtrl(void)
+{   // コンストラクタ
+    pinMode(PIN_1, INPUT_PULLUP);
+    pinMode(PIN_2, INPUT_PULLUP);
+}
+
+
+void SysCtrl::initialize(void)
+{
+    /* krsモーターの初期設定 */
+    krs.begin(&Serial1, EN_PIN, BAUDRATE, TIMEOUT);
+    krs.setSpd(0, 10);
+    krs.setStrc(0, 60);
+}
+
+
+/**
+ * @brief SysCtrlの内容を実行する
+ * 
+ */
+void SysCtrl::run(void)
+{  
+    int rotateState = 0;
+    /* 状態の取得（ボタン、軸角度、速度、ストレッチ） */
+   SystemStatus systemStatus = this->getSystemStatus();
+    /* 指令値セット（目標角度、速度、ストレッチ）を生成 */
+   ServoStatus cmdStatus = this->getCmdStatus(&systemStatus);     
+      /* 指令セットの送信 */
+   this->runServo(&cmdStatus);
+}
+
+/**
+ * @brief 現在のシステム状態を取得
+ * 
+ * @return SystemStatus 
+ */
+SystemStatus SysCtrl::getSystemStatus()
+{
+    SystemStatus systemStatus;
+    /* sw1がONの時 */
+    if(!digitalRead(PIN_1)){systemStatus.isPushingBtn1 = true;}
+    /* sw2がONの時 */
+    if(!digitalRead(PIN_2)){systemStatus.isPushingBtn2 = true;}
+    /* サーボ情報取得 */
+    systemStatus.servoStatus.servoAngle = krs.getPos(0);
+    systemStatus.servoStatus.servoSpd = krs.getSpd(0);
+    systemStatus.servoStatus.servoStrc = krs.getStrc(0);
+    return systemStatus;
+}
+
+/**
+ * @brief 二つのボタン指示（IO指示）からモーターの駆動に必要なパラメータを決定する
+ * 
+ * @param systemStatus 
+ * @return ServoStatus 
+ */
+ServoStatus SysCtrl::getCmdStatus(SystemStatus *systemStatus)
+{
+    static int preServoAng = systemStatus->servoStatus.servoAngle;
+    static unsigned long prevTime1 = 0;
+    static unsigned long prevTime2 = 0;
+    unsigned long currentTime = millis();
+    unsigned long elapsedTime1 = currentTime - prevTime1;
+    unsigned long elapsedTime2 = currentTime - prevTime2;
+    long randomSeed = 0;
+    //unsigned long time = 0;
+    //Serial.print(time);
+    //Serial.print("\t");
+    Serial.print(preServoAng);
+    Serial.print("\t");
+    Serial.println(krs.posDeg(systemStatus->servoStatus.servoAngle));
+    ServoStatus servoStatus;
+    static int state = 0;
+    static int l = 0;
+    static int count1 = 0;
+   
+    if(systemStatus != nullptr)
+    {
+        //preServoAng = systemStatus->servoStatus.servoAngle;      
+        if (Serial.available() > 0) {
+        	char input = Serial.read();
+		    if(input == '0') {
+        		state = 0;
+        	}
+        	if(input == '1') {
+        		state = 1;
+        	}
+        	if(input == '2') {
+        		state = 2;
+        	}
+        	if(input == '3') {
+        		state = 3;
+        	}
+        	if(input == '4') {
+        		state = 4;
+        	}
+        	if(input == '5') {
+        		state = 5;
+        	}
+        	if(input == '6') {
+        		state = 6;
+        	}
+        	if(input == '7') {
+        		state = 7;
+        	}
+        	if(input == '8') {
+        		state = 8;
+        	}
+        	if(input == '9') {
+        		state = 9;
+        	}
+        	if(input == 'a') {
+        		state = 11;
+        	}
+        	if(input == 'b') {
+        		state = 22;
+        	}
+        	if(input == 's') {
+        		state = 999;
+        	}
+        }
+        
+        if(state == 0){
+        	//delay(500);
+        	servoStatus.servoAngle = krs.degPos(0); 
+        	if(krs.posDeg(systemStatus->servoStatus.servoAngle) < 0.0){		
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+        	}
+        	else{
+        		servoStatus.servoSpd = 15;
+        		servoStatus.servoStrc = 120;
+        	}
+        	l = 0;
+        	//Serial.println(krs.posDeg(systemStatus->servoStatus.servoAngle));
+        }
+        if(state == 1){
+        	
+        	if(l == 0){
+        		int ran = random(1,6)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+				//count1 ++;
+				// interrupt
+				/*
+				if(count1 == 4) {
+					state = 0;
+					count1 = 0;
+				}
+				*/
+			}	
+        }
+        if(state == 2){
+        	if(l == 0){
+        		int ran = random(1,4)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+			}	
+        }
+		if(state == 3){
+        	if(l == 0){
+        		int ran = random(1,5)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+			}	
+        }
+		if(state == 4){
+        	if(l == 0){
+        		int ran = random(1,3)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+			}	
+        }
+		if(state == 5){
+        	if(l == 0){
+        		int ran = random(1,5)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+			}	
+        }
+		if(state == 6){
+        	if(l == 0){
+        		int ran = random(1,4)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+			}	
+        }
+
+
+
+        if(state == 7){
+        	if(l == 0){
+        		int ran = random(3,9)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+				state = 1;
+				count1 ++;
+				if(count1 == 2) {
+					state = 0;
+					count1 = 0;
+				}
+			}	
+        }
+        if(state == 8){
+        	if(l == 0){
+        		int ran = random(3,9)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+				state = 1;
+				count1 ++;
+				if(count1 == 2) {
+					state = 0;
+					count1 = 0;
+				}
+			}	
+        }
+        if(state == 9){
+        	if(l == 0){
+        		int ran = random(3,9)*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 1;
+			}
+			else if (l == 1){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 0;
+				state = 1;
+				count1 ++;
+				if(count1 == 2) {
+					state = 0;
+					count1 = 0;
+				}
+			}	
+        }
+        if(state == 11){
+        	
+        	if(l == 0){
+        		int ran = 15*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+				l = 1;
+			}
+			else if (l == 1){
+				int ran = random(2,6)*1000;
+				delay(ran);
+				Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 2;
+			}
+			else if (l == 2){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 1;
+			}	
+        }
+        if(state == 22){
+        	
+        	if(l == 0){
+        		int ran = 15*1000;
+    	    	delay(ran);
+    	    	Serial.println(ran);
+				l = 1;
+			}
+			else if (l == 1){
+				int ran = random(1,7)*1000;
+				delay(ran);
+				Serial.println(ran);
+        		servoStatus.servoAngle = krs.degPos(-10); 
+     			servoStatus.servoSpd = 1;
+        		servoStatus.servoStrc = 30;
+				l = 2;
+			}
+			else if (l == 2){
+				delay(300);
+        		servoStatus.servoAngle = krs.degPos(-30); 
+     			servoStatus.servoSpd = 20;
+        		servoStatus.servoStrc = 120;
+				l = 1;
+			}	
+        }
+        if(state == 999){
+        	
+        	servoStatus.servoAngle = krs.degPos(krs.posDeg(systemStatus->servoStatus.servoAngle)); 
+     		servoStatus.servoSpd = 35;
+        	servoStatus.servoStrc = 120;
+        	l = 0;
+        	Serial.println(krs.posDeg(systemStatus->servoStatus.servoAngle));
+        }
+    }
+    // その他の処理
+    return servoStatus;
+}
+
+/**
+ * @brief krsモーターを駆動させる
+ * 
+ * @param cmdStatus 
+ */
+void SysCtrl::runServo(ServoStatus *cmdStatus)
+{
+    if(cmdStatus != nullptr)
+    {
+        krs.setPos(0, cmdStatus->servoAngle);
+        krs.setSpd(0, cmdStatus->servoSpd);
+        krs.setStrc(0, cmdStatus->servoStrc);
+    }
+}
+   
+        /*
+int IcsBaseClass::degPos(float deg)
+{
+  if (deg > MAX_DEG) {
+    return -1;
+  }
+  if (deg < MIN_DEG) {
+    return -1;
+  }
+  int pos = deg * 29.633;
+  pos = pos + 7500;
+  return pos;
+}               
+        */
